@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
@@ -7,10 +8,33 @@ let mainWindow = null;
 let inputInjector = null;
 
 function initInputInjector() {
-  const injectorPath = path.join(__dirname, 'native', 'InputInjector.exe');
+  let injectorPath = path.join(__dirname, 'native', 'InputInjector.exe');
+
+  if (app.isPackaged) {
+    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'src', 'native', 'InputInjector.exe');
+    if (fs.existsSync(unpackedPath)) {
+      injectorPath = unpackedPath;
+    } else {
+      const altPath = path.join(process.resourcesPath, 'src', 'native', 'InputInjector.exe');
+      if (fs.existsSync(altPath)) {
+        injectorPath = altPath;
+      }
+    }
+  }
+
+  if (!fs.existsSync(injectorPath)) {
+    console.log('[InputInjector] Binary not found at', injectorPath, '- Host input will be inactive');
+    return;
+  }
+
   try {
     inputInjector = spawn(injectorPath, [], {
       stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    inputInjector.on('error', (err) => {
+      console.warn('[InputInjector Spawn Error]', err.message);
+      inputInjector = null;
     });
 
     inputInjector.stdout.on('data', (data) => {
@@ -26,7 +50,8 @@ function initInputInjector() {
       inputInjector = null;
     });
   } catch (err) {
-    console.error('[InputInjector Failed to start]', err);
+    console.warn('[InputInjector Failed to start]', err);
+    inputInjector = null;
   }
 }
 
