@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remote Desk</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Auto-Updater Notification Banner -->
+    <div id="updateBanner" class="update-banner" hidden>
+      <span id="updateBannerText">Pembaruan sistem tersedia.</span>
+      <button id="btnRestartUpdate" class="btn btn-small btn-primary" hidden>Pasang & Mulai Ulang</button>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-title">Remote Desk</span>
+        <span class="version-tag">v1.0</span>
+      </div>
+
+      <div class="server-config">
+        <label for="serverUrl" class="sr-only">Signaling Server URL</label>
+        <input type="text" id="serverUrl" value="https://beaches-bugs-february-letters.trycloudflare.com" placeholder="Signaling URL (http://vps-ip:4000)" title="Signaling Server URL">
+        <button id="btnConnectServer" class="btn btn-secondary">Connect Server</button>
+        <span id="serverStatusBadge" class="status-badge status-offline">Offline</span>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="tab-nav" role="tablist">
+      <div class="tab-nav-inner">
+        <button id="tabHost" class="tab-btn active" role="tab" aria-selected="true" aria-controls="viewHost">
+          Host Mode (PC Rumah)
+        </button>
+        <button id="tabViewer" class="tab-btn" role="tab" aria-selected="false" aria-controls="viewViewer">
+          Viewer Mode (Luar Kota)
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+      <!-- Host View (For home PC) -->
+      <section id="viewHost" class="view-panel active" role="tabpanel" aria-labelledby="tabHost">
+        <div class="card host-card">
+          <div class="card-header">
+            <h2>Konfigurasi Akses Tanpa Penjaga (Unattended Access)</h2>
+            <p class="card-desc">Biarkan PC ini menyala dan terhubung ke server agar dapat diremote dari luar kota kapan saja.</p>
+          </div>
+
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="hostDeviceId">Device ID</label>
+                <div class="input-with-action">
+                  <input type="text" id="hostDeviceId" readonly value="HOME-PC-8891" class="mono-input">
+                  <button id="btnCopyId" class="btn btn-secondary btn-small" title="Salin ID">Salin</button>
+                  <button id="btnRegenId" class="btn btn-secondary btn-small" title="Generate New ID">Acak ID</button>
+                </div>
+                <span class="form-help">ID unik perangkat ini untuk dikenali controller.</span>
+              </div>
+
+              <div class="form-group">
+                <label for="hostPin">Security PIN / Password</label>
+                <input type="password" id="hostPin" value="123456" placeholder="Ketik 6 digit PIN">
+                <span class="form-help">PIN rahasia untuk otorisasi otomatis tanpa konfirmasi fisik.</span>
+              </div>
+            </div>
+
+            <div class="host-controls">
+              <button id="btnToggleHost" class="btn btn-primary">Aktifkan Host Standby</button>
+              <div class="host-state">
+                <span class="state-label">Status Host:</span>
+                <span id="hostStatusText" class="state-value">Tidak Aktif</span>
+              </div>
+            </div>
+
+            <div class="host-info-box">
+              <h3>Catatan Pengoperasian Luar Kota</h3>
+              <ul>
+                <li>Pastikan Windows Power Sleep diatur ke <strong>Never</strong>.</li>
+                <li>Gunakan server signaling publik (VPS) saat mengontrol dari beda jaringan.</li>
+                <li>Setelah controller terhubung, layar PC ini akan dialirkan secara aman melalui WebRTC.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Viewer View (For laptop out of town) -->
+      <section id="viewViewer" class="view-panel" role="tabpanel" aria-labelledby="tabViewer" hidden>
+        <!-- Viewer Setup Form -->
+        <div id="viewerSetupCard" class="card">
+          <div class="card-header">
+            <h2>Konek ke PC Jarak Jauh</h2>
+            <p class="card-desc">Masukkan ID dan PIN PC rumah untuk memulai sesi remote.</p>
+          </div>
+
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="targetDeviceId">Target Device ID</label>
+                <input type="text" id="targetDeviceId" class="mono-input" placeholder="Contoh: HOME-PC-8891">
+              </div>
+
+              <div class="form-group">
+                <label for="targetPin">Security PIN</label>
+                <input type="password" id="targetPin" placeholder="Masukkan PIN PC Rumah">
+              </div>
+            </div>
+
+            <div class="viewer-actions">
+              <button id="btnStartRemote" class="btn btn-primary">Mulai Remote</button>
+            </div>
+
+            <div id="connectionMessage" class="feedback-msg" hidden></div>
+          </div>
+        </div>
+
+        <!-- Live Remote Session Container -->
+        <div id="sessionContainer" class="session-container" hidden>
+          <div class="session-bar">
+            <div class="session-info">
+              <span class="session-badge">Connected: <strong id="activeTargetName">-</strong></span>
+              <span id="sessionLatency" class="stat-item">RTT: -- ms</span>
+            </div>
+            <div class="session-tools">
+              <button id="btnToggleFullscreen" class="btn btn-small">Fullscreen</button>
+              <button id="btnDisconnectSession" class="btn btn-danger btn-small">Putus Sesi</button>
+            </div>
+          </div>
+
+          <div class="viewport-wrapper" id="viewportWrapper" tabindex="0" title="Klik area ini untuk mengontrol mouse dan keyboard">
+            <video id="remoteVideo" autoplay playsinline muted></video>
+            <img id="remoteImage" alt="Remote Screen" hidden>
+            <div id="viewportOverlay" class="viewport-overlay" hidden>
+              <div class="spinner"></div>
+              <p id="overlayMessage">Menghubungkan jalur media...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <video id="hostPreviewVideo" autoplay muted style="display: none;"></video>
+
+  <script src="socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
