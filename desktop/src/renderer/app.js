@@ -50,10 +50,12 @@ const btnStartRemote = document.getElementById('btnStartRemote');
 const connectionMessage = document.getElementById('connectionMessage');
 
 const sessionContainer = document.getElementById('sessionContainer');
+const sessionBar = document.getElementById('sessionBar');
 const activeTargetName = document.getElementById('activeTargetName');
 const sessionLatency = document.getElementById('sessionLatency');
 const btnToggleFullscreen = document.getElementById('btnToggleFullscreen');
 const btnDisconnectSession = document.getElementById('btnDisconnectSession');
+const btnCollapseToolbar = document.getElementById('btnCollapseToolbar');
 const viewportWrapper = document.getElementById('viewportWrapper');
 const remoteVideo = document.getElementById('remoteVideo');
 const viewportOverlay = document.getElementById('viewportOverlay');
@@ -573,6 +575,8 @@ async function startViewerPeerConnection(hostSocketId, deviceName) {
   // Switch UI to Live Viewport
   viewerSetupCard.setAttribute('hidden', '');
   sessionContainer.removeAttribute('hidden');
+  document.body.classList.add('session-active');
+  btnToggleFullscreen.textContent = 'Keluar Layar Penuh';
   viewportOverlay.style.display = 'flex';
   viewportOverlay.removeAttribute('hidden');
   overlayMessage.textContent = 'Menghubungkan jalur video...';
@@ -594,6 +598,9 @@ function triggerAutoFullscreen() {
   if (hasEnteredFullscreen) return;
   hasEnteredFullscreen = true;
   console.log('[Viewer] Entering auto fullscreen mode');
+
+  document.body.classList.add('session-active');
+  btnToggleFullscreen.textContent = 'Keluar Layar Penuh';
 
   setTimeout(() => {
     if (window.api && window.api.setFullscreen) {
@@ -759,21 +766,43 @@ function setupViewerInputCapture() {
 
 // Fullscreen Toggle
 btnToggleFullscreen.addEventListener('click', () => {
-  const isFs = Boolean(document.fullscreenElement);
+  const isFs = Boolean(document.fullscreenElement) || document.body.classList.contains('session-fullscreen');
+  const targetFs = !isFs;
+
+  document.body.classList.toggle('session-fullscreen', targetFs);
+  btnToggleFullscreen.textContent = targetFs ? 'Keluar Layar Penuh' : 'Layar Penuh';
+
   if (window.api && window.api.setFullscreen) {
-    window.api.setFullscreen(!isFs);
-  } else if (!isFs) {
+    window.api.setFullscreen(targetFs);
+  } else if (targetFs) {
     sessionContainer.requestFullscreen().catch(() => {});
-  } else {
+  } else if (document.fullscreenElement) {
     document.exitFullscreen().catch(() => {});
   }
 });
+
+// Toolbar Collapse Toggle
+if (btnCollapseToolbar && sessionBar) {
+  btnCollapseToolbar.addEventListener('click', () => {
+    const isCollapsed = sessionBar.classList.toggle('collapsed');
+    btnCollapseToolbar.textContent = isCollapsed ? '▼' : '▲';
+    btnCollapseToolbar.title = isCollapsed ? 'Tampilkan Bilah Menu' : 'Sembunyikan Bilah Menu';
+  });
+}
 
 // Disconnect Session
 function closeActiveSession(message) {
   stopHostRelayStream();
 
-  // Restore fullscreen
+  // Restore fullscreen & session layout
+  document.body.classList.remove('session-active');
+  document.body.classList.remove('session-fullscreen');
+  btnToggleFullscreen.textContent = 'Layar Penuh';
+  if (sessionBar) {
+    sessionBar.classList.remove('collapsed');
+    if (btnCollapseToolbar) btnCollapseToolbar.textContent = '▲';
+  }
+
   if (window.api && window.api.setFullscreen) {
     window.api.setFullscreen(false);
   } else if (document.fullscreenElement) {

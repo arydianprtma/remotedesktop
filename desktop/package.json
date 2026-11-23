@@ -1,6 +1,6 @@
 {
   "name": "remote-desk-client",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Remote Desk desktop client for unattended and attended remote access",
   "main": "src/main.js",
   "repository": {

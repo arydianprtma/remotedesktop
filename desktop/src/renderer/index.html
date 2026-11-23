@@ -20,7 +20,7 @@
       <div class="brand">
         <img src="assets/logo-192.png" alt="Remote Desk Logo" class="brand-logo">
         <span class="brand-title">Remote Desk</span>
-        <span class="version-tag">v1.0.8</span>
+        <span class="version-tag">v1.0.9</span>
         <span class="badge-e2ee">Enkripsi E2EE Aktif</span>
       </div>
 
@@ -125,14 +125,16 @@
 
         <!-- Live Remote Session Container -->
         <div id="sessionContainer" class="session-container" hidden>
-          <div class="session-bar">
+          <div id="sessionBarRevealArea" class="session-bar-reveal" title="Arahkan kursor ke sini untuk menampilkan bilah menu"></div>
+          <div id="sessionBar" class="session-bar">
             <div class="session-info">
               <span class="session-badge">Connected: <strong id="activeTargetName">-</strong></span>
               <span id="sessionLatency" class="stat-item">RTT: -- ms</span>
             </div>
             <div class="session-tools">
-              <button id="btnToggleFullscreen" class="btn btn-small">Fullscreen</button>
+              <button id="btnToggleFullscreen" class="btn btn-small">Keluar Layar Penuh</button>
               <button id="btnDisconnectSession" class="btn btn-danger btn-small">Putus Sesi</button>
+              <button id="btnCollapseToolbar" class="btn btn-small" title="Sembunyikan / Tampilkan Menu" style="padding: 4px 8px; font-size: 0.75rem;">▲</button>
             </div>
           </div>
 
