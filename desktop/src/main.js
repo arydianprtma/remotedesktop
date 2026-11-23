@@ -111,16 +111,26 @@ ipcMain.on('set-fullscreen', (event, flag) => {
 });
 
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdater] Update available:', info.version);
     if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('updater-status', {
-        status: 'available',
+      mainWindow.webContents.send('updater-event', {
+        type: 'available',
         version: info.version,
-        message: `Versi baru (${info.version}) tersedia. Mengunduh pembaruan...`
+        releaseNotes: info.releaseNotes || 'Pembaruan performa dan fitur terbaru Remote Desk.'
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('updater-event', {
+        type: 'progress',
+        percent: Math.round(progressObj.percent),
+        bytesPerSecond: progressObj.bytesPerSecond
       });
     }
   });
@@ -128,10 +138,9 @@ function setupAutoUpdater() {
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[AutoUpdater] Update downloaded:', info.version);
     if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('updater-status', {
-        status: 'ready',
-        version: info.version,
-        message: `Pembaruan v${info.version} siap dipasang.`
+      mainWindow.webContents.send('updater-event', {
+        type: 'downloaded',
+        version: info.version
       });
     }
   });
@@ -140,18 +149,22 @@ function setupAutoUpdater() {
     console.log('[AutoUpdater Info]', err.message);
   });
 
+  ipcMain.on('start-download-update', () => {
+    autoUpdater.downloadUpdate().catch((e) => console.error('[Download error]', e));
+  });
+
+  ipcMain.on('restart-app-for-update', () => {
+    autoUpdater.quitAndInstall();
+  });
+
   if (app.isPackaged) {
     setTimeout(() => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      autoUpdater.checkForUpdates().catch((err) => {
         console.log('[AutoUpdater check skipped]', err.message);
       });
-    }, 4000);
+    }, 3000);
   }
 }
-
-ipcMain.on('restart-app-for-update', () => {
-  autoUpdater.quitAndInstall();
-});
 
 app.whenReady().then(() => {
   initInputInjector();

@@ -822,22 +822,74 @@ window.addEventListener('DOMContentLoaded', () => {
   hostDeviceIdInput.value = generateDeviceId();
   initSignalingSocket();
 
-  // Listen for auto-updater events
-  if (window.api && window.api.onUpdaterStatus) {
-    const updateBanner = document.getElementById('updateBanner');
-    const updateBannerText = document.getElementById('updateBannerText');
-    const btnRestartUpdate = document.getElementById('btnRestartUpdate');
+  // Auto-Updater Modal Popup Handlers
+  const updateModal = document.getElementById('updateModal');
+  const updateModalTitle = document.getElementById('updateModalTitle');
+  const updateModalVersion = document.getElementById('updateModalVersion');
+  const updateModalDesc = document.getElementById('updateModalDesc');
+  const updateProgressContainer = document.getElementById('updateProgressContainer');
+  const updateProgressBar = document.getElementById('updateProgressBar');
+  const updateProgressPercent = document.getElementById('updateProgressPercent');
+  const updateProgressStatus = document.getElementById('updateProgressStatus');
 
-    window.api.onUpdaterStatus((data) => {
-      if (!updateBanner) return;
-      updateBanner.removeAttribute('hidden');
-      updateBannerText.textContent = data.message;
+  const btnDismissUpdate = document.getElementById('btnDismissUpdate');
+  const btnDownloadUpdate = document.getElementById('btnDownloadUpdate');
+  const btnApplyUpdate = document.getElementById('btnApplyUpdate');
 
-      if (data.status === 'ready') {
-        btnRestartUpdate.removeAttribute('hidden');
-        btnRestartUpdate.onclick = () => {
-          window.api.restartForUpdate();
-        };
+  if (btnDismissUpdate) {
+    btnDismissUpdate.addEventListener('click', () => {
+      updateModal.setAttribute('hidden', '');
+    });
+  }
+
+  if (btnDownloadUpdate) {
+    btnDownloadUpdate.addEventListener('click', () => {
+      btnDownloadUpdate.disabled = true;
+      btnDownloadUpdate.textContent = 'Mengunduh...';
+      updateProgressContainer.removeAttribute('hidden');
+      if (window.api && window.api.startDownloadUpdate) {
+        window.api.startDownloadUpdate();
+      }
+    });
+  }
+
+  if (btnApplyUpdate) {
+    btnApplyUpdate.addEventListener('click', () => {
+      if (window.api && window.api.restartForUpdate) {
+        window.api.restartForUpdate();
+      }
+    });
+  }
+
+  if (window.api && window.api.onUpdaterEvent) {
+    window.api.onUpdaterEvent((data) => {
+      if (!updateModal) return;
+
+      if (data.type === 'available') {
+        updateModalVersion.textContent = `v${data.version}`;
+        updateModalTitle.textContent = 'Pembaruan Baru Tersedia!';
+        if (data.releaseNotes) {
+          updateModalDesc.textContent = data.releaseNotes;
+        }
+        btnDownloadUpdate.removeAttribute('hidden');
+        btnDownloadUpdate.disabled = false;
+        btnDownloadUpdate.textContent = 'Unduh Sekarang';
+        btnApplyUpdate.setAttribute('hidden', '');
+        updateProgressContainer.setAttribute('hidden', '');
+        updateModal.removeAttribute('hidden');
+      } else if (data.type === 'progress') {
+        updateProgressContainer.removeAttribute('hidden');
+        updateProgressBar.style.width = `${data.percent}%`;
+        updateProgressPercent.textContent = `${data.percent}%`;
+        const kbps = Math.round((data.bytesPerSecond || 0) / 1024);
+        updateProgressStatus.textContent = `Mengunduh... (${kbps} KB/s)`;
+      } else if (data.type === 'downloaded') {
+        updateProgressContainer.setAttribute('hidden', '');
+        btnDownloadUpdate.setAttribute('hidden', '');
+        btnApplyUpdate.removeAttribute('hidden');
+        updateModalTitle.textContent = 'Pembaruan Siap Dipasang!';
+        updateModalDesc.textContent = `Remote Desk v${data.version} telah selesai diunduh. Silakan restart aplikasi untuk menerapkan pembaruan.`;
+        updateModal.removeAttribute('hidden');
       }
     });
   }

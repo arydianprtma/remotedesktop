@@ -148,6 +148,48 @@
 
   <video id="hostPreviewVideo" autoplay muted style="display: none;"></video>
 
+  <!-- In-App Auto-Update Modal Popup -->
+  <div id="updateModal" class="modal-backdrop" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-badge-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </div>
+        <div class="modal-title-group">
+          <h3 id="updateModalTitle">Pembaruan Tersedia</h3>
+          <span id="updateModalVersion" class="update-pill">v1.0.3</span>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <p id="updateModalDesc" class="modal-desc">
+          Versi terbaru Remote Desk telah dirilis dengan peningkatan stabilitas dan fitur auto-fullscreen.
+        </p>
+
+        <!-- Download Progress Bar Container -->
+        <div id="updateProgressContainer" class="progress-container" hidden>
+          <div class="progress-track">
+            <div id="updateProgressBar" class="progress-fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-labels">
+            <span id="updateProgressPercent" class="progress-percent">0%</span>
+            <span id="updateProgressStatus" class="progress-speed">Mengunduh berkas...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnDismissUpdate" class="btn btn-secondary">Nanti Saja</button>
+        <button id="btnDownloadUpdate" class="btn btn-primary">Unduh Sekarang</button>
+        <button id="btnApplyUpdate" class="btn btn-primary" hidden>Restart & Pasang Sekarang</button>
+      </div>
+    </div>
+  </div>
+
   <script src="socket.io.min.js"></script>
   <script src="app.js"></script>
 </body>
