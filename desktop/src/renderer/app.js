@@ -861,6 +861,36 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function sanitizeReleaseNotes(raw) {
+    if (!raw) return 'Pembaruan stabilitas dan peningkatan performa Remote Desk.';
+
+    let items = [];
+    if (Array.isArray(raw)) {
+      items = raw.map(r => (typeof r === 'object' && r && r.note ? r.note : String(r)));
+    } else if (typeof raw === 'string') {
+      items = raw.replace(/<br\s*\/?>/gi, '\n').split('\n');
+    }
+
+    const cleanedItems = items
+      .map(item => {
+        let text = item.replace(/<[^>]*>/g, ' ').trim();
+        // Bersihkan prefix conventional commit: feat:, fix(ui):, chore:, docs:, etc.
+        text = text.replace(/^(?:[-*•]\s*)?(?:(?:feat|fix|perf|refactor|style|test|build|ci|chore|docs)(?:\([^)]*\))?!?:?\s*)/i, '');
+        // Bersihkan simbol bullet atau tanda minus di depan
+        text = text.replace(/^[-*•]\s*/, '').trim();
+        text = text.replace(/\s+/g, ' ');
+        if (!text) return '';
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      })
+      .filter(Boolean);
+
+    if (cleanedItems.length === 0) {
+      return 'Pembaruan stabilitas dan peningkatan performa Remote Desk.';
+    }
+
+    return cleanedItems.join('\n');
+  }
+
   if (window.api && window.api.onUpdaterEvent) {
     window.api.onUpdaterEvent((data) => {
       if (!updateModal) return;
@@ -868,15 +898,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (data.type === 'available') {
         updateModalVersion.textContent = `v${data.version}`;
         updateModalTitle.textContent = 'Pembaruan Baru Tersedia!';
-        if (data.releaseNotes) {
-          if (Array.isArray(data.releaseNotes)) {
-            const notes = data.releaseNotes.map(n => (n.note || '').replace(/<[^>]*>/g, '').trim()).filter(Boolean).join('\n');
-            updateModalDesc.textContent = notes || 'Pembaruan stabilitas dan peningkatan performa.';
-          } else if (typeof data.releaseNotes === 'string') {
-            const clean = data.releaseNotes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            updateModalDesc.textContent = clean || 'Pembaruan stabilitas dan peningkatan performa.';
-          }
-        }
+        updateModalDesc.textContent = sanitizeReleaseNotes(data.releaseNotes);
         btnDownloadUpdate.removeAttribute('hidden');
         btnDownloadUpdate.disabled = false;
         btnDownloadUpdate.textContent = 'Unduh Sekarang';
