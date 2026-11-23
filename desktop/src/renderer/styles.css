@@ -620,6 +620,107 @@ body {
   color: #1e40af;
 }
 
+/* History List Styles */
+.history-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--bg-subdued);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.history-item:hover {
+  background-color: #f8fafc;
+  border-color: var(--border-strong);
+}
+
+.history-device-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.history-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.history-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-btn-connect {
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  font-weight: 600;
+}
+
+.history-btn-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.history-btn-delete:hover {
+  color: var(--color-danger-dot);
+  background-color: var(--color-danger-bg);
+}
+
+.history-empty-state {
+  text-align: center;
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 /* Live Session Viewport */
 .session-container {
   display: flex;

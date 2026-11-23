@@ -44,6 +44,9 @@ const hostStatusText = document.getElementById('hostStatusText');
 
 // Viewer Elements
 const viewerSetupCard = document.getElementById('viewerSetupCard');
+const viewerHistoryCard = document.getElementById('viewerHistoryCard');
+const historyListContainer = document.getElementById('historyListContainer');
+const btnClearHistory = document.getElementById('btnClearHistory');
 const targetDeviceIdInput = document.getElementById('targetDeviceId');
 const targetPinInput = document.getElementById('targetPin');
 const btnStartRemote = document.getElementById('btnStartRemote');
@@ -111,8 +114,146 @@ function generateDeviceId() {
 
 btnRegenId.addEventListener('click', () => {
   if (isHostActive) return;
-  hostDeviceIdInput.value = generateDeviceId();
+  const newId = generateDeviceId();
+  hostDeviceIdInput.value = newId;
+  try {
+    localStorage.setItem('remote_desk_host_id', newId);
+  } catch (e) {}
 });
+
+if (hostPinInput) {
+  hostPinInput.addEventListener('input', () => {
+    try {
+      localStorage.setItem('remote_desk_host_pin', hostPinInput.value);
+    } catch (e) {}
+  });
+}
+
+// Remote History Management
+function getRemoteHistory() {
+  try {
+    const raw = localStorage.getItem('remote_desk_history');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function formatRelativeTime(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffSec = Math.floor((now - date) / 1000);
+
+  if (diffSec < 60) return 'Baru saja';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
+  if (diffSec < 86400 && date.getDate() === now.getDate()) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const mins = String(date.getMinutes()).padStart(2, '0');
+    return `Hari ini, ${hours}:${mins}`;
+  }
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+}
+
+function renderRemoteHistory() {
+  if (!historyListContainer) return;
+  const history = getRemoteHistory();
+
+  if (history.length === 0) {
+    historyListContainer.innerHTML = '<div class="history-empty-state">Belum ada riwayat perangkat yang diremote.</div>';
+    if (btnClearHistory) btnClearHistory.setAttribute('hidden', '');
+    return;
+  }
+
+  if (btnClearHistory) btnClearHistory.removeAttribute('hidden');
+  historyListContainer.innerHTML = '';
+
+  history.forEach((item) => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'history-item';
+
+    itemEl.innerHTML = `
+      <div class="history-device-info">
+        <div class="history-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </div>
+        <div class="history-details">
+          <span class="history-id">${item.deviceId}</span>
+          <span class="history-time">Terakhir diremote: ${formatRelativeTime(item.lastConnected)}</span>
+        </div>
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-primary btn-small history-btn-connect" data-id="${item.deviceId}">Konek Cepat</button>
+        <button class="history-btn-delete" title="Hapus dari riwayat" data-id="${item.deviceId}">&times;</button>
+      </div>
+    `;
+
+    const btnConnect = itemEl.querySelector('.history-btn-connect');
+    btnConnect.addEventListener('click', () => {
+      targetDeviceIdInput.value = item.deviceId;
+      if (item.pin) targetPinInput.value = item.pin;
+      btnStartRemote.click();
+    });
+
+    const btnDelete = itemEl.querySelector('.history-btn-delete');
+    btnDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteRemoteHistoryItem(item.deviceId);
+    });
+
+    historyListContainer.appendChild(itemEl);
+  });
+}
+
+function saveToRemoteHistory(deviceId, pin) {
+  if (!deviceId) return;
+  const history = getRemoteHistory().filter(h => h.deviceId !== deviceId);
+  history.unshift({
+    deviceId,
+    pin: pin || '',
+    lastConnected: new Date().toISOString()
+  });
+
+  const trimmed = history.slice(0, 10);
+  try {
+    localStorage.setItem('remote_desk_history', JSON.stringify(trimmed));
+    localStorage.setItem('remote_desk_last_target_id', deviceId);
+    if (pin) localStorage.setItem('remote_desk_last_target_pin', pin);
+  } catch (e) {}
+
+  renderRemoteHistory();
+}
+
+function deleteRemoteHistoryItem(deviceId) {
+  const history = getRemoteHistory().filter(h => h.deviceId !== deviceId);
+  try {
+    localStorage.setItem('remote_desk_history', JSON.stringify(history));
+    if (localStorage.getItem('remote_desk_last_target_id') === deviceId) {
+      localStorage.removeItem('remote_desk_last_target_id');
+      localStorage.removeItem('remote_desk_last_target_pin');
+    }
+  } catch (e) {}
+  renderRemoteHistory();
+}
+
+function clearRemoteHistory() {
+  try {
+    localStorage.removeItem('remote_desk_history');
+    localStorage.removeItem('remote_desk_last_target_id');
+    localStorage.removeItem('remote_desk_last_target_pin');
+  } catch (e) {}
+  renderRemoteHistory();
+}
+
+if (btnClearHistory) {
+  btnClearHistory.addEventListener('click', () => {
+    clearRemoteHistory();
+  });
+}
 
 // Server Connection Management
 function updateServerStatus(status, text) {
@@ -561,6 +702,7 @@ btnStartRemote.addEventListener('click', () => {
     console.log('[Viewer] Auth successful. Connecting to host socket:', res.hostSocketId);
     showConnectionFeedback('PIN valid. Memulai pertukaran media WebRTC...', false);
 
+    saveToRemoteHistory(targetId, pin);
     startViewerPeerConnection(res.hostSocketId, res.deviceName);
   });
 });
@@ -574,6 +716,7 @@ async function startViewerPeerConnection(hostSocketId, deviceName) {
 
   // Switch UI to Live Viewport
   viewerSetupCard.setAttribute('hidden', '');
+  if (viewerHistoryCard) viewerHistoryCard.setAttribute('hidden', '');
   sessionContainer.removeAttribute('hidden');
   document.body.classList.add('session-active');
   btnToggleFullscreen.textContent = 'Keluar Layar Penuh';
@@ -836,6 +979,8 @@ function closeActiveSession(message) {
 
   sessionContainer.setAttribute('hidden', '');
   viewerSetupCard.removeAttribute('hidden');
+  if (viewerHistoryCard) viewerHistoryCard.removeAttribute('hidden');
+  renderRemoteHistory();
 
   if (message) {
     showConnectionFeedback(message, false);
@@ -848,7 +993,31 @@ btnDisconnectSession.addEventListener('click', () => {
 
 // Initial boot
 window.addEventListener('DOMContentLoaded', () => {
-  hostDeviceIdInput.value = generateDeviceId();
+  try {
+    // Restore or generate Host ID & PIN
+    const savedHostId = localStorage.getItem('remote_desk_host_id');
+    const savedHostPin = localStorage.getItem('remote_desk_host_pin');
+    if (savedHostId) {
+      hostDeviceIdInput.value = savedHostId;
+    } else {
+      const newId = generateDeviceId();
+      hostDeviceIdInput.value = newId;
+      localStorage.setItem('remote_desk_host_id', newId);
+    }
+    if (savedHostPin) {
+      hostPinInput.value = savedHostPin;
+    } else {
+      localStorage.setItem('remote_desk_host_pin', hostPinInput.value || '123456');
+    }
+
+    // Restore last used Viewer Target ID & PIN
+    const lastTargetId = localStorage.getItem('remote_desk_last_target_id');
+    const lastTargetPin = localStorage.getItem('remote_desk_last_target_pin');
+    if (lastTargetId) targetDeviceIdInput.value = lastTargetId;
+    if (lastTargetPin) targetPinInput.value = lastTargetPin;
+  } catch (e) {}
+
+  renderRemoteHistory();
   initSignalingSocket();
 
   // Auto-Updater Modal Popup Handlers
