@@ -7,5 +7,6 @@ contextBridge.exposeInMainWorld('api', {
   onUpdaterEvent: (callback) => ipcRenderer.on('updater-event', (event, data) => callback(data)),
   startDownloadUpdate: () => ipcRenderer.send('start-download-update'),
   restartForUpdate: () => ipcRenderer.send('restart-app-for-update'),
+  checkUpdate: () => ipcRenderer.send('manual-check-update'),
   setFullscreen: (flag) => ipcRenderer.send('set-fullscreen', flag)
 });

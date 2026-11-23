@@ -162,12 +162,25 @@ function setupAutoUpdater() {
     autoUpdater.quitAndInstall(true, true);
   });
 
+  ipcMain.on('manual-check-update', () => {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.log('[Manual check error]', err.message);
+      });
+    }
+  });
+
   if (app.isPackaged) {
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((err) => {
         console.log('[AutoUpdater check skipped]', err.message);
       });
     }, 3000);
+
+    // Periksa pembaruan otomatis setiap 60 detik
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch(() => {});
+    }, 60000);
   }
 }
 
