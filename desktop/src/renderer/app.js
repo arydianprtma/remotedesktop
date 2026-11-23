@@ -869,7 +869,13 @@ window.addEventListener('DOMContentLoaded', () => {
         updateModalVersion.textContent = `v${data.version}`;
         updateModalTitle.textContent = 'Pembaruan Baru Tersedia!';
         if (data.releaseNotes) {
-          updateModalDesc.textContent = data.releaseNotes;
+          if (Array.isArray(data.releaseNotes)) {
+            const notes = data.releaseNotes.map(n => (n.note || '').replace(/<[^>]*>/g, '').trim()).filter(Boolean).join('\n');
+            updateModalDesc.textContent = notes || 'Pembaruan stabilitas dan peningkatan performa.';
+          } else if (typeof data.releaseNotes === 'string') {
+            const clean = data.releaseNotes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            updateModalDesc.textContent = clean || 'Pembaruan stabilitas dan peningkatan performa.';
+          }
         }
         btnDownloadUpdate.removeAttribute('hidden');
         btnDownloadUpdate.disabled = false;
