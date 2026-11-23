@@ -250,6 +250,19 @@ body {
   border-radius: 4px;
 }
 
+.badge-e2ee {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: var(--color-success-text);
+  background-color: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
 .server-config {
   display: flex;
   align-items: center;
