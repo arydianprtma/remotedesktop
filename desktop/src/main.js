@@ -64,6 +64,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Remote Desk',
+    icon: path.join(__dirname, 'renderer', 'assets', 'icon.ico'),
     autoHideMenuBar: true,
     backgroundColor: '#f8fafc',
     webPreferences: {
