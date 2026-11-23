@@ -154,7 +154,7 @@ function setupAutoUpdater() {
   });
 
   ipcMain.on('restart-app-for-update', () => {
-    autoUpdater.quitAndInstall();
+    autoUpdater.quitAndInstall(true, true);
   });
 
   if (app.isPackaged) {
