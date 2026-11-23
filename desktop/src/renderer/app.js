@@ -20,6 +20,7 @@ let iceCandidatesQueue = [];
 let isRelayStreaming = false;
 let relayStreamInterval = null;
 let lastBlobUrl = null;
+let hasEnteredFullscreen = false;
 
 const remoteImage = document.getElementById('remoteImage');
 const hostPreviewVideo = document.getElementById('hostPreviewVideo');
@@ -273,6 +274,7 @@ function setupSignalingListeners() {
       remoteImage.removeAttribute('hidden');
       viewportOverlay.style.display = 'none';
       viewportOverlay.setAttribute('hidden', '');
+      triggerAutoFullscreen();
     }
 
     const newUrl = URL.createObjectURL(new Blob([data], { type: 'image/jpeg' }));
@@ -588,7 +590,21 @@ async function startViewerPeerConnection(hostSocketId, deviceName) {
   // Add video transceiver to explicitly inform offer that we are ready to receive video
   peerConnection.addTransceiver('video', { direction: 'recvonly' });
 
-  // Receive Remote Screen Stream
+function triggerAutoFullscreen() {
+  if (hasEnteredFullscreen) return;
+  hasEnteredFullscreen = true;
+  console.log('[Viewer] Entering auto fullscreen mode');
+
+  setTimeout(() => {
+    if (window.api && window.api.setFullscreen) {
+      window.api.setFullscreen(true);
+    } else if (!document.fullscreenElement && sessionContainer) {
+      sessionContainer.requestFullscreen().catch(() => {});
+    }
+  }, 200);
+}
+
+// Receive Remote Screen Stream
   peerConnection.ontrack = (event) => {
     console.log('[Viewer] Video track received', event);
     if (event.streams && event.streams[0]) {
@@ -600,11 +616,13 @@ async function startViewerPeerConnection(hostSocketId, deviceName) {
     remoteVideo.play().catch(e => console.error('[Video Play Error]', e));
     viewportOverlay.style.display = 'none';
     viewportOverlay.setAttribute('hidden', '');
+    triggerAutoFullscreen();
   };
 
   remoteVideo.onloadeddata = () => {
     viewportOverlay.style.display = 'none';
     viewportOverlay.setAttribute('hidden', '');
+    triggerAutoFullscreen();
   };
 
   // ICE Candidates
@@ -741,18 +759,27 @@ function setupViewerInputCapture() {
 
 // Fullscreen Toggle
 btnToggleFullscreen.addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    sessionContainer.requestFullscreen().catch(err => {
-      console.error('[Fullscreen Error]', err);
-    });
+  const isFs = Boolean(document.fullscreenElement);
+  if (window.api && window.api.setFullscreen) {
+    window.api.setFullscreen(!isFs);
+  } else if (!isFs) {
+    sessionContainer.requestFullscreen().catch(() => {});
   } else {
-    document.exitFullscreen();
+    document.exitFullscreen().catch(() => {});
   }
 });
 
 // Disconnect Session
 function closeActiveSession(message) {
   stopHostRelayStream();
+
+  // Restore fullscreen
+  if (window.api && window.api.setFullscreen) {
+    window.api.setFullscreen(false);
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+  hasEnteredFullscreen = false;
   if (lastBlobUrl) {
     URL.revokeObjectURL(lastBlobUrl);
     lastBlobUrl = null;

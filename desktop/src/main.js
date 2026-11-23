@@ -104,6 +104,12 @@ ipcMain.on('inject-input', (event, command) => {
   }
 });
 
+ipcMain.on('set-fullscreen', (event, flag) => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(Boolean(flag));
+  }
+});
+
 function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
