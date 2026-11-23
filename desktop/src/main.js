@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -56,12 +56,15 @@ function initInputInjector() {
 }
 
 function createWindow() {
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1080,
     height: 720,
     minWidth: 800,
     minHeight: 600,
     title: 'Remote Desk',
+    autoHideMenuBar: true,
     backgroundColor: '#f8fafc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -69,6 +72,8 @@ function createWindow() {
       contextIsolation: true
     }
   });
+
+  mainWindow.setMenu(null);
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
