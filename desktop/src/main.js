@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, screen, Menu, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -207,6 +207,12 @@ function setupAutoUpdater() {
 }
 
 app.whenReady().then(() => {
+  try {
+    powerSaveBlocker.start('prevent-app-suspension');
+    powerSaveBlocker.start('prevent-display-sleep');
+    console.log('[Power] Sleep and display suspension successfully blocked');
+  } catch (e) {}
+
   initInputInjector();
   createWindow();
   setupAutoUpdater();
