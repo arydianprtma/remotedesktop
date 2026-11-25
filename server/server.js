@@ -25,6 +25,8 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     activeHosts: registeredHosts.size,
+    hosts: Array.from(registeredHosts.entries()).map(([k, v]) => ({ deviceId: k, socketId: v.socketId, deviceName: v.deviceName })),
+    sessions: Array.from(activeSessions.entries()).map(([k, v]) => ({ from: k, to: v })),
     timestamp: new Date().toISOString()
   });
 });
@@ -100,7 +102,15 @@ io.on('connection', (socket) => {
   });
 
   // Dual-Engine Relay: Screen Video Frame Relay
+  let frameCount = 0;
   socket.on('relay-frame', (data) => {
+    frameCount++;
+    if (frameCount % 30 === 1) {
+      const type = typeof data;
+      const len = data ? (data.length || data.byteLength || 0) : 0;
+      const preview = (typeof data === 'string') ? data.substring(0, 40) : 'binary';
+      console.log(`[RelayFrame #${frameCount}] from ${socket.id}, type=${type}, len=${len}, start=${preview}`);
+    }
     const peerSocketId = activeSessions.get(socket.id);
     if (peerSocketId) {
       socket.to(peerSocketId).volatile.emit('relay-frame', data);

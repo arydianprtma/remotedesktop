@@ -594,15 +594,20 @@ function startHostRelayStream() {
     try {
       isEncoding = true;
       ctx.drawImage(hostPreviewVideo, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-      isEncoding = false;
-      if (dataUrl && socket && socket.connected && isRelayStreaming) {
-        socket.emit('relay-frame', dataUrl);
-      }
+      canvas.toBlob((blob) => {
+        isEncoding = false;
+        if (blob && socket && socket.connected && isRelayStreaming) {
+          blob.arrayBuffer().then((buf) => {
+            if (socket && socket.connected && isRelayStreaming) {
+              socket.emit('relay-frame', buf);
+            }
+          }).catch(() => {});
+        }
+      }, 'image/jpeg', 0.5);
     } catch (e) {
       isEncoding = false;
     }
-  }, 50); // 20 FPS
+  }, 66); // 15 FPS stable relay stream
 }
 
 function stopHostRelayStream() {
@@ -769,6 +774,23 @@ btnStartRemote.addEventListener('click', () => {
   });
 });
 
+function triggerAutoFullscreen() {
+  if (hasEnteredFullscreen) return;
+  hasEnteredFullscreen = true;
+  console.log('[Viewer] Entering auto fullscreen mode');
+
+  document.body.classList.add('session-active');
+  btnToggleFullscreen.textContent = 'Keluar Layar Penuh';
+
+  setTimeout(() => {
+    if (window.api && window.api.setFullscreen) {
+      window.api.setFullscreen(true);
+    } else if (!document.fullscreenElement && sessionContainer) {
+      sessionContainer.requestFullscreen().catch(() => {});
+    }
+  }, 200);
+}
+
 async function startViewerPeerConnection(hostSocketId, deviceName) {
   if (peerConnection) {
     peerConnection.close();
@@ -799,24 +821,7 @@ async function startViewerPeerConnection(hostSocketId, deviceName) {
   // Add video transceiver to explicitly inform offer that we are ready to receive video
   peerConnection.addTransceiver('video', { direction: 'recvonly' });
 
-function triggerAutoFullscreen() {
-  if (hasEnteredFullscreen) return;
-  hasEnteredFullscreen = true;
-  console.log('[Viewer] Entering auto fullscreen mode');
-
-  document.body.classList.add('session-active');
-  btnToggleFullscreen.textContent = 'Keluar Layar Penuh';
-
-  setTimeout(() => {
-    if (window.api && window.api.setFullscreen) {
-      window.api.setFullscreen(true);
-    } else if (!document.fullscreenElement && sessionContainer) {
-      sessionContainer.requestFullscreen().catch(() => {});
-    }
-  }, 200);
-}
-
-// Receive Remote Screen Stream
+  // Receive Remote Screen Stream
   peerConnection.ontrack = (event) => {
     console.log('[Viewer] Video track received', event);
     if (event.streams && event.streams[0]) {
