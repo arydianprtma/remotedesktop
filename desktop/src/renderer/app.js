@@ -418,11 +418,20 @@ function setupSignalingListeners() {
   socket.on('relay-frame', (data) => {
     if (!remoteImage) return;
 
-    if (!remoteVideo.srcObject || remoteVideo.paused) {
-      remoteVideo.setAttribute('hidden', '');
+    const isWebRtcPlaying = peerConnection && 
+                            peerConnection.connectionState === 'connected' && 
+                            remoteVideo &&
+                            remoteVideo.readyState >= 2 && 
+                            remoteVideo.videoWidth > 0 && 
+                            !remoteVideo.paused;
+
+    if (!isWebRtcPlaying) {
+      if (remoteVideo) remoteVideo.setAttribute('hidden', '');
       remoteImage.removeAttribute('hidden');
-      viewportOverlay.style.display = 'none';
-      viewportOverlay.setAttribute('hidden', '');
+      if (viewportOverlay) {
+        viewportOverlay.style.display = 'none';
+        viewportOverlay.setAttribute('hidden', '');
+      }
       triggerAutoFullscreen();
     }
 
@@ -453,22 +462,35 @@ async function setHostState(active) {
 
     // Acquire desktop capture stream
     try {
-      const sources = await window.api.getScreenSources();
-      if (!sources || sources.length === 0) {
-        throw new Error('No screen capture source found');
+      if (navigator.mediaDevices.getDisplayMedia) {
+        try {
+          localScreenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: { ideal: 30, max: 60 } },
+            audio: false
+          });
+        } catch (e) {
+          console.warn('[getDisplayMedia fallback to getUserMedia]', e);
+        }
       }
 
-      localScreenStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: sources[0].id,
-            minFrameRate: 30,
-            maxFrameRate: 60
-          }
+      if (!localScreenStream) {
+        const sources = await window.api.getScreenSources();
+        if (!sources || sources.length === 0) {
+          throw new Error('No screen capture source found');
         }
-      });
+
+        localScreenStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sources[0].id,
+              minFrameRate: 30,
+              maxFrameRate: 60
+            }
+          }
+        });
+      }
 
       registerHostOnServer();
     } catch (err) {
@@ -579,19 +601,29 @@ async function startHostPeerConnection(controllerSocketId) {
   // Ensure screen stream tracks exist
   if (!localScreenStream || localScreenStream.getTracks().length === 0) {
     try {
-      const sources = await window.api.getScreenSources();
-      if (sources && sources.length > 0) {
-        localScreenStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: sources[0].id,
-              minFrameRate: 30,
-              maxFrameRate: 60
+      if (navigator.mediaDevices.getDisplayMedia) {
+        try {
+          localScreenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: { ideal: 30, max: 60 } },
+            audio: false
+          });
+        } catch (e) {}
+      }
+      if (!localScreenStream) {
+        const sources = await window.api.getScreenSources();
+        if (sources && sources.length > 0) {
+          localScreenStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sources[0].id,
+                minFrameRate: 30,
+                maxFrameRate: 60
+              }
             }
-          }
-        });
+          });
+        }
       }
     } catch (err) {
       console.error('[Host] Failed to reacquire screen stream:', err);
@@ -770,15 +802,17 @@ function triggerAutoFullscreen() {
     }
     remoteVideo.muted = true;
     remoteVideo.play().catch(e => console.error('[Video Play Error]', e));
-    viewportOverlay.style.display = 'none';
-    viewportOverlay.setAttribute('hidden', '');
-    triggerAutoFullscreen();
   };
 
-  remoteVideo.onloadeddata = () => {
-    viewportOverlay.style.display = 'none';
-    viewportOverlay.setAttribute('hidden', '');
-    triggerAutoFullscreen();
+  remoteVideo.onplaying = () => {
+    console.log('[Viewer] Video playing event triggered');
+    if (peerConnection && peerConnection.connectionState === 'connected' && remoteVideo.videoWidth > 0) {
+      remoteVideo.removeAttribute('hidden');
+      remoteImage.setAttribute('hidden', '');
+      viewportOverlay.style.display = 'none';
+      viewportOverlay.setAttribute('hidden', '');
+      triggerAutoFullscreen();
+    }
   };
 
   // ICE Candidates
@@ -794,11 +828,15 @@ function triggerAutoFullscreen() {
   // Connection State Monitor
   peerConnection.onconnectionstatechange = () => {
     console.log('[Viewer Connection State]', peerConnection.connectionState);
-    if (peerConnection.connectionState === 'connected') {
+    if (peerConnection.connectionState === 'connected' && remoteVideo.videoWidth > 0) {
       remoteImage.setAttribute('hidden', '');
       remoteVideo.removeAttribute('hidden');
-    } else if (peerConnection.connectionState === 'failed') {
+      viewportOverlay.style.display = 'none';
+      viewportOverlay.setAttribute('hidden', '');
+    } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
       console.log('[Viewer] WebRTC direct P2P unavailable. Active on WebSocket Relay.');
+      remoteVideo.setAttribute('hidden', '');
+      remoteImage.removeAttribute('hidden');
     }
   };
 
@@ -824,16 +862,24 @@ function triggerAutoFullscreen() {
 function startLatencyMonitor() {
   if (pingInterval) clearInterval(pingInterval);
   pingInterval = setInterval(async () => {
-    if (!peerConnection) return;
-    try {
-      const stats = await peerConnection.getStats();
-      stats.forEach(report => {
-        if (report.type === 'candidate-pair' && report.currentRoundTripTime !== undefined) {
-          const rttMs = Math.round(report.currentRoundTripTime * 1000);
-          sessionLatency.textContent = `RTT: ${rttMs} ms`;
-        }
-      });
-    } catch (e) {}
+    let gotRtt = false;
+    if (peerConnection) {
+      try {
+        const stats = await peerConnection.getStats();
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.currentRoundTripTime !== undefined) {
+            const rttMs = Math.round(report.currentRoundTripTime * 1000);
+            sessionLatency.textContent = `RTT: ${rttMs} ms (P2P)`;
+            gotRtt = true;
+          }
+        });
+      } catch (e) {}
+    }
+    if (!gotRtt) {
+      if (remoteImage && !remoteImage.hasAttribute('hidden') && remoteImage.src) {
+        sessionLatency.textContent = 'Mode: Relay';
+      }
+    }
   }, 1000);
 }
 

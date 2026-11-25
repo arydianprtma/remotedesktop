@@ -76,6 +76,15 @@ function createWindow() {
 
   mainWindow.setMenu(null);
 
+  // Allow screen capture via getDisplayMedia / getUserMedia with chromeMediaSource
+  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      callback({ video: sources[0], audio: 'loopback' });
+    }).catch(() => {
+      callback({});
+    });
+  });
+
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   mainWindow.on('closed', () => {
