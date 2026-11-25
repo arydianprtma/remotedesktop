@@ -301,7 +301,9 @@ function initSignalingSocket() {
       console.log('[Socket] Connected to signaling server');
       updateServerStatus('online', 'Online');
 
-      if (isHostActive) {
+      if (!isHostActive) {
+        setHostState(true).catch(e => console.error('[AutoHost Error]', e));
+      } else {
         registerHostOnServer();
       }
     });
