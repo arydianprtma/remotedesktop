@@ -998,7 +998,7 @@ btnDisconnectSession.addEventListener('click', () => {
 });
 
 // Initial boot
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   try {
     // Restore or generate Host ID & PIN
     const savedHostId = localStorage.getItem('remote_desk_host_id');
