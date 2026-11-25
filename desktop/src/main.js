@@ -79,7 +79,11 @@ function createWindow() {
   // Allow screen capture via getDisplayMedia / getUserMedia with chromeMediaSource
   mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-      callback({ video: sources[0], audio: 'loopback' });
+      if (sources && sources.length > 0) {
+        callback({ video: sources[0] });
+      } else {
+        callback({});
+      }
     }).catch(() => {
       callback({});
     });

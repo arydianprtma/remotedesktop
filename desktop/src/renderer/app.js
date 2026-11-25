@@ -435,12 +435,25 @@ function setupSignalingListeners() {
       triggerAutoFullscreen();
     }
 
-    const newUrl = URL.createObjectURL(new Blob([data], { type: 'image/jpeg' }));
-    remoteImage.src = newUrl;
-    if (lastBlobUrl) {
-      URL.revokeObjectURL(lastBlobUrl);
+    if (typeof data === 'string') {
+      remoteImage.src = data;
+    } else {
+      const blob = (data instanceof Blob) ? data : new Blob([data], { type: 'image/jpeg' });
+      const newUrl = URL.createObjectURL(blob);
+      const oldUrl = lastBlobUrl;
+      remoteImage.onload = () => {
+        if (oldUrl && oldUrl !== newUrl) {
+          URL.revokeObjectURL(oldUrl);
+        }
+      };
+      remoteImage.onerror = () => {
+        if (oldUrl && oldUrl !== newUrl) {
+          URL.revokeObjectURL(oldUrl);
+        }
+      };
+      remoteImage.src = newUrl;
+      lastBlobUrl = newUrl;
     }
-    lastBlobUrl = newUrl;
   });
 }
 
@@ -492,6 +505,12 @@ async function setHostState(active) {
         });
       }
 
+      if (localScreenStream && hostPreviewVideo) {
+        hostPreviewVideo.srcObject = localScreenStream;
+        hostPreviewVideo.muted = true;
+        hostPreviewVideo.play().catch(e => console.error('[Host Video Play Error]', e));
+      }
+
       registerHostOnServer();
     } catch (err) {
       console.error('[Capture Error]', err);
@@ -508,6 +527,9 @@ async function setHostState(active) {
     btnRegenId.disabled = false;
 
     stopHostRelayStream();
+    if (hostPreviewVideo) {
+      hostPreviewVideo.srcObject = null;
+    }
     if (localScreenStream) {
       localScreenStream.getTracks().forEach(t => t.stop());
       localScreenStream = null;
@@ -552,7 +574,10 @@ function startHostRelayStream() {
   isRelayStreaming = true;
 
   if (localScreenStream && hostPreviewVideo) {
-    hostPreviewVideo.srcObject = localScreenStream;
+    if (!hostPreviewVideo.srcObject) {
+      hostPreviewVideo.srcObject = localScreenStream;
+    }
+    hostPreviewVideo.muted = true;
     hostPreviewVideo.play().catch(e => console.error('[Host Video Play Error]', e));
   }
 
@@ -564,21 +589,20 @@ function startHostRelayStream() {
   let isEncoding = false;
   relayStreamInterval = setInterval(() => {
     if (!isRelayStreaming || isEncoding) return;
-    if (!hostPreviewVideo || hostPreviewVideo.readyState < 2) return;
+    if (!hostPreviewVideo || hostPreviewVideo.readyState < 2 || hostPreviewVideo.videoWidth === 0) return;
 
     try {
       isEncoding = true;
       ctx.drawImage(hostPreviewVideo, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        isEncoding = false;
-        if (blob && socket && socket.connected && isRelayStreaming) {
-          socket.emit('relay-frame', blob);
-        }
-      }, 'image/jpeg', 0.6);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+      isEncoding = false;
+      if (dataUrl && socket && socket.connected && isRelayStreaming) {
+        socket.emit('relay-frame', dataUrl);
+      }
     } catch (e) {
       isEncoding = false;
     }
-  }, 40); // 25 FPS
+  }, 50); // 20 FPS
 }
 
 function stopHostRelayStream() {
