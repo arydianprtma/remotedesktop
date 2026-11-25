@@ -100,6 +100,27 @@ ipcMain.handle('get-screen-dimensions', () => {
   };
 });
 
+ipcMain.handle('get-tunnel-url', () => {
+  const possiblePaths = [
+    'H:\\Remote Desk\\tunnel.log',
+    path.join(__dirname, '..', '..', 'tunnel.log'),
+    path.join(process.cwd(), 'tunnel.log')
+  ];
+
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const content = fs.readFileSync(p, 'utf8');
+        const matches = content.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g);
+        if (matches && matches.length > 0) {
+          return matches[matches.length - 1];
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+});
+
 ipcMain.on('inject-input', (event, command) => {
   if (inputInjector && inputInjector.stdin && !inputInjector.stdin.destroyed) {
     try {

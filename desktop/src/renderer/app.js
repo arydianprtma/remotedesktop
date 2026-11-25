@@ -274,6 +274,10 @@ function initSignalingSocket() {
   const url = serverUrlInput.value.trim();
   if (!url) return;
 
+  try {
+    localStorage.setItem('remote_desk_server_url', url);
+  } catch (e) {}
+
   if (socket) {
     socket.disconnect();
   }
@@ -1015,6 +1019,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const lastTargetPin = localStorage.getItem('remote_desk_last_target_pin');
     if (lastTargetId) targetDeviceIdInput.value = lastTargetId;
     if (lastTargetPin) targetPinInput.value = lastTargetPin;
+
+    // Restore or auto-detect active Server URL
+    const savedUrl = localStorage.getItem('remote_desk_server_url');
+    let detectedUrl = null;
+    if (window.api && window.api.getTunnelUrl) {
+      detectedUrl = await window.api.getTunnelUrl();
+    }
+
+    if (detectedUrl && (!savedUrl || savedUrl.includes('.trycloudflare.com'))) {
+      serverUrlInput.value = detectedUrl;
+      localStorage.setItem('remote_desk_server_url', detectedUrl);
+    } else if (savedUrl) {
+      serverUrlInput.value = savedUrl;
+    }
   } catch (e) {}
 
   renderRemoteHistory();

@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('api', {
   startDownloadUpdate: () => ipcRenderer.send('start-download-update'),
   restartForUpdate: () => ipcRenderer.send('restart-app-for-update'),
   checkUpdate: () => ipcRenderer.send('manual-check-update'),
+  getTunnelUrl: () => ipcRenderer.invoke('get-tunnel-url'),
   setFullscreen: (flag) => ipcRenderer.send('set-fullscreen', flag)
 });
